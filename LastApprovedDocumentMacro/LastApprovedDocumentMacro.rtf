@@ -1,0 +1,111 @@
+{\rtf1\ansi\ansicpg1252\cocoartf1348\cocoasubrtf170
+{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+\margl1440\margr1440\vieww10800\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural
+
+\f0\fs24 \cf0 ### LastApprovedDocument Macro ###\
+####################################\
+#set( $lastApprovedDocumentMacroVer = "1.2.0" )\
+##################################################################################################################################\
+#if($doc.name.equals("LastApprovedDocumentMacro"))\
+1 The module "LastApprovedDocumentMacro" Version: $lastApprovedDocumentMacroVer\
+\{code\}\
+\
+Module:             "LastApprovedDocumentMacro"\
+\
+Purpose:            This macro returns last approved version of the documents inside the specified space\
+                \
+Author:             "Jean-Fran\'e7ois Thibeault - 20150615"\
+            \
+Modification:       "Andy Holton - 20150617 - 1.1.0"  - Now a array of approved state can be specified\
+                    "Jean-Fran\'e7ois Thibeault - 20150618 - 1.2.0"  - New parameter to list approved states that will not be displayed\
+\
+Required Dependency:    None\
+\
+Control Variables:      None\
+\
+How To Use:\
+                    This macro is typically run inside a Wiki Page or a LiveDoc where you can insert wiki code, include the macro code and\
+                    call the macro (as shown below)\
+\
+Example of use:\
+                \
+\{includeForm:macros.LastApprovedDocumentMacro\}\
+#set($approvedStates = ["approved","postApproved","preApproved"])\
+#set($notDisplayedStates= ["obsolete"])\
+#LastApprovedDocumentMacro($spaceName $approvedStates $notDisplayedStates)\
+\{code\}\
+#end\
+##################################################################################################################################\
+\
+#macro(GetLastApprovedDocumentsInSpace $spaceName $approveStates $notDisplayedStates)\
+\
+## Helper Variables\
+## ------------------------------------------------------------------------------------------------\
+#set ($projectId = $page.project)\
+#set ($project = $projectService.getProject($projectId))\
+#set ($spaceId = $page.space.getId())\
+#set ($dataService = $trackerService.getDataService())\
+#set ($repoService = $polarionTool.getRepositoryService())\
+#set ($connection = $repoService.getReadOnlyConnection($polarionTool.getLocation()))\
+#set ($docsManager = $trackerService.getDocumentsManager())\
+#set ($modManager = $trackerService.getModuleManager())\
+#set ($dataService = $trackerService.getDataService())\
+#set ($modLocation = $projectService.getProject($projectId).getLocation().append("modules"))\
+#set ($relModLoc = $modLocation.getRelativeLocation($modLocation))\
+#set ($subFolders = $modManager.getSubFolders($project, $relModLoc))\
+\
+#foreach ($folder in $subFolders)\
+  #set ($currentSpaceName = $folder.getLastComponent())\
+  #if($currentSpaceName == $spaceName)\
+    #set ($mods = $modManager.getModules($project, $folder))\
+    #foreach ($mod in $mods)\
+      #set ($approvedDocumentLink = "")\
+      #set ($approvedDocumentName = "")\
+      #set ($approvedDocumentStatus = "")\
+      #set ($approvedDocumentStatusID = "")\
+      #set ($approvedDocumentVersion = "")\
+      #set ($approvedDocumentDate = "")\
+      #set ($foundAtLeastOneApprovedVersion = 0)\
+      #set ($lastRevision = 0)\
+      #foreach($c in $mod.getWorkflowSignatures())\
+        #foreach ($approvedState in $approveStates)\
+          #if($c.transitionRevision  && $c.targetStatus.id.equals($approvedState) )\
+            #set($r = $c.transitionRevision)\
+            #set($version = false)\
+            #set($oldDoc =  $dataService.getVersionedInstance($mod.getUri(),$r))\
+            #set($version =  $oldDoc.getValue("version"))\
+            #if(!$version)  \
+              #set($version =  $r) \
+            #end\
+            #set($IntegerRevision = 0)\
+            #if ($lastRevision < $IntegerRevision.parseInt($r))      \
+              #set ($approvedDocumentLink = "/wiki/$\{currentSpaceName\}/$oldDoc.getId()?revision=$r") \
+              #set ($approvedDocumentName = $oldDoc.moduleName)\
+              #set ($approvedDocumentStatus = $oldDoc.getStatus().getName())\
+              #set ($approvedDocumentStatusID = $oldDoc.getStatus().getId())\
+              #set ($approvedDocumentVersion = $version) \
+              #set ($approvedDocumentDate = $oldDoc.getUpdated())            \
+              #set ($lastRevision = $IntegerRevision.parseInt($r) )\
+              #set ($foundAtLeastOneApprovedVersion = 1)\
+            #end\
+          #end \
+        #end     \
+      #end  \
+      #if ($foundAtLeastOneApprovedVersion == 1)\
+        #set($documentCanBeDisplayed = 1)\
+        #foreach ($notDisplayedState in $notDisplayedStates)\
+          #if($approvedDocumentStatusID.equals($notDisplayedState) )\
+            #set($documentCanBeDisplayed = 0)\
+          #end\
+        #end\
+        #if ($documentCanBeDisplayed == 1)   \
+          \{portallink:$approvedDocumentLink|addcontext=yes\} <img src=$oldDoc.type.getProperty("iconURL") /> <b>$approvedDocumentName (Version: $approvedDocumentVersion)</b> \{portallink\} $approvedDocumentStatus on: $approvedDocumentDate<br>\
+        #end\
+      #end\
+    #end\
+  #end\
+#end\
+\
+#end}

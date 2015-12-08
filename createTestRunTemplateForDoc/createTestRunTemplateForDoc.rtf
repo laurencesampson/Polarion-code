@@ -1,0 +1,95 @@
+{\rtf1\ansi\ansicpg1252\cocoartf1348\cocoasubrtf170
+{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+\margl1440\margr1440\vieww10800\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural
+
+\f0\fs24 \cf0 ########################################\
+### createTestRunTemplateForDoc Macro ###\
+########################################\
+#set( $createTestRunTemplateForDocVer= "1.0.1" )\
+##################################################################################################################################\
+#if($doc.name.equals("createTestRunTemplateForDoc"))\
+1 The module "createTestRunTemplateForDoc" Version: $createTestRunTemplateForDocVer\
+This wiki page is a tool kit library of common accessors and control variables along with a macro library.\
+\{code\}\
+\
+Module:             "createTestRunTemplateForDoc"\
+\
+                    The macro will create a Test Run Template that will be configured to include work items\
+                    included in a test specification.\
+                \
+Author:             "Jean-Francois Thibeault - 20150202"\
+Modified By:        "Jean-Francois Thibeault - 20150205"  \
+                    \
+\
+Required Dependency:    None\
+\
+Control Variables:      None\
+ \
+Parameters:             $projectId: ID of the project where the Test Run Template will be created\
+                        $spaceName: Name of the Space containing the Test Specification\
+                        $documentName: Name of the Test Specification\
+                        $query: Work Item query associated to the Test Run Template\
+\
+\
+\
+How To Use:\
+                    Include the macro in your wiki code\
+                    Call the macro: createTestRunTemplateForDoc  with the corresponding parameters\
+Example of use:\
+#includeMacros("/macros.createTestRunTemplateForDoc")\
+\
+#createTestRunTemplateForDoc ($myProjectID "My Space" "My Test Specification" "type:testcase")\
+\
+\{code\}\
+\
+\
+#macro(createTestRunTemplateForDoc $projectId $spaceName $documentName $query)\
+\
+  ## Check if the Test Run Template already exists\
+  ## if so, we don't create a new Test Run Template\
+  ## ----------------------------------------------\
+  #set ( $testRun = $testManagementService.getTestRun($projectId,$documentName))\
+  #if($testRun.isUnresolvable())\
+\
+    $transactionService.beginTx()\
+\
+\
+      ## Replace any unsupported characters in the $documentName\
+      ## -------------------------------------------------------\
+      ##set ( $sanitizedDocumentName = $documentName.replaceAll('#', ' '))\
+\
+      ## Create New Test Run\
+      ## -------------------\
+      #set ( $newTestRun = $testManagementService.createTestRun($projectId,$documentName,null)) \
+      \
+      ## Make the Test Run a Template\
+      ## ----------------------------\
+      $newTestRun.setIsTemplate(true)\
+\
+      ## Test Cases are selected "From LiveDoc on Execute"\
+      ## -------------------------------------------------\
+      $newTestRun.setSelectTestCasesBy("dynamicLiveDoc") \
+\
+      ## Set the LiveDoc document from which the test run will be created\
+      ## ----------------------------------------------------------------\
+      #set( $docProject = $trackerService.getProjectsService().getProject($projectId) )\
+      #set( $moduleManager = $trackerService.getModuleManager() )\
+      #set( $docLocation = $docProject.location.getLocation("$spaceName/$documentName") )\
+      #set ( $docModule = $moduleManager.getModule($docProject, $docLocation))\
+      $newTestRun.setDocument($docModule)\
+\
+      ## Set the Test Run Query\
+      ## ----------------------\
+      $newTestRun.setQuery($query)\
+      \
+      ## Save the Test Run\
+      ## -----------------\
+      $newTestRun.save()\
+\
+    $transactionService.endTx(false)\
+  #end\
+\
+#end\
+#end}

@@ -1,0 +1,195 @@
+{\rtf1\ansi\ansicpg1252\cocoartf1348\cocoasubrtf170
+{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+\margl1440\margr1440\vieww10800\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural
+
+\f0\fs24 \cf0 ## For testing ...\
+#if(!$document)\
+1 Document Signatures Panel\
+\
+This wiki page provides the implementation of the Document Signatures panel. If you want to render the signatures in the document, please include this wiki page in your documents.\
+\
+\{code\}\
+\\\{includeForm:/macros.signatures\}\
+\{code\}\
+#else\
+\
+#set($ds =  $trackerService.getDataService())\
+\
+#set($showPending = true)\
+#set($approvedState = "approved")\
+\
+\
+### Macros\
+#macro(panelTitle $t)\
+<div style="color: \\#003366;font-weight: bold;line-height: 1.2;font-family: Arial, Helvetica, sans-serif;margin: 0.83em 0 0.41em;font-size:16px">$t</div>\
+#end\
+\
+#macro(renderVerdictIcon $verdict)\
+  #if($verdict.id.equals("signed"))\
+   <img style="height:16px" src="/polarion/ria/images/sidebars/signatures/verdict-comment-signed.png"/>\
+  #elseif($verdict.id.equals("declined"))\
+   <img style="height:16px" src="/polarion/ria/images/sidebars/signatures/verdict-comment-declined.png"/>\
+  #else\
+   <img style="height:16px" src="/polarion/ria/images/sidebars/signatures/signature-comment.png"/>\
+  #end\
+#end\
+\
+#macro(renderTransition $c)\
+   #if($c.transitionRevision)\
+        *$c.targetStatus.name*  \
+        <span style="font-size:12px;padding-left:5px">\
+          ($calendarTool.formatDate($trackerService.dataService.getRevision($document.getContextId(),$c.transitionRevision).created,"yyyy-MM-dd HH:mm"))\
+        </span> \
+   #else\
+      <i>\
+        *$c.targetStatus.name* \
+        <span style="font-size:12px;padding-left:5px">\
+          (Transition $!c.signatureState.name)\
+        </span>  \
+      </i>\
+   #end\
+  ##\{portallink:/project/$\{document.project.id\}/wiki/$\{document.moduleFolder\}/$\{document.id\}?sidebar=signatures&status=reviewed&revision=$c.transitionRevision\} link     \{portallink\}\
+#end\
+\
+#macro(renderSignatures)\
+#panelTitle("Document Signatures")\
+\
+<table border="0" width="700px" cellpadding=3>\
+#set($someRevision = false)\
+#foreach($c in $document.getWorkflowSignatures())\
+  #if($showPending || $c.transitionRevision)\
+   #if(!$c.signatureState.id.equals("obsolete"))\
+    #set($someRevision = true)\
+    <tr style="border-bottom: thin solid lightgray;height:40px;">\
+      <td colspan=4 style="font-size:15px;vertical-align:bottom;">\
+               #renderTransition($c)\
+      </td>\
+    </tr>\
+    #foreach($s in $c.signatures)\
+      <tr style="margin-top:20px">\
+        <td style="width:20px;padding-left:10px;vertical-align:middle;">\
+          #renderVerdictIcon($s.verdict)\
+        </td>\
+        <td align="left"  style="vertical-align:middle;"> *$s.signedBy.name*  \
+#if($s.signerRole)<span style="font-size:11px">\
+          ($!s.signerRole)</span>#end\
+        </td>\
+        <td align="right" style="width:100px; vertical-align:middle;" > \
+          $!s.verdict.name \
+       </td>\
+        <td align="right" style="width:150px; vertical-align:middle;" >  \
+            #if($s.verdictTime) \
+              $calendarTool.formatDate($s.verdictTime,"yyyy-MM-dd HH:mm")\
+            #end \
+          </span>\
+        </td>\
+      </tr>\
+      #if($s.verdictComment)\
+        <tr style="">\
+          <td></td>\
+          <td colspan=3 style="font-style:italic">\
+            $s.verdictComment.text.convertToHTML().content\
+          </td>\
+        </tr>\
+      #end\
+    #end\
+   #end\
+  #end\
+#end\
+</table>\
+#if(!$someRevision)\
+  No signed statuses.\
+#end\
+#end  ### end macro(renderSignatures)\
+   \
+\
+#macro(renderProperties)\
+  #panelTitle("Document Properties")\
+  <table cellpadding=1>\
+    <tr>\
+      <td align="right">\
+        Status: \
+      </td>\
+      <td>\
+        #if($document.status)\
+          <img src=$document.status.getProperty("iconURL") /> \
+          *$document.status.name*\
+        #end\
+      </td>\
+    </tr>\
+    <tr>\
+      <td align="right">\
+        Version: \
+      </td>\
+      <td>\
+        <b>$!document.getValue("version") </b>\
+      </td>\
+    </tr>\
+    <tr>\
+      <td align="right">\
+        Author: \
+      </td>\
+      <td>\
+        $!document.author.name\
+      </td>\
+    </tr>\
+    <tr>\
+      <td align="right">\
+        Created: \
+      </td>\
+      <td>\
+        $calendarTool.formatDate($document.created,"yyyy-MM-dd HH:mm")\
+      </td>\
+    </tr>\
+  </table>\
+#end\
+\
+\
+#macro(renderLastApproved )\
+  #panelTitle("Approved Versions")\
+\
+<div style="padding-top:10px;">\
+#if($document.status.id.equals($approvedState))\
+ Current document version  <b>$!document.getValue("version")</b> is <b>approved.</b>\
+#else\
+ Current document version  <b>$!document.getValue("version")</b> has not been <b>approved.</b>\
+#end\
+\
+Approved Versions:\
+\
+#set($notApprovedYet = true)\
+#foreach($c in $document.getWorkflowSignatures())\
+  #if($c.transitionRevision  && $c.targetStatus.id.equals($approvedState) )\
+    #set($r = $c.transitionRevision)\
+    #set($notApprovedYet = false)\
+    #set($version = false)\
+    #set($oldDoc =  $ds.getVersionedInstance($document.getUri(),$r))\
+    #set($version =  $oldDoc.getValue("version"))\
+    #if(!$version)  #set($version =  $r) #end\
+     * \{portallink:/wiki/$oldDoc.moduleFolder/$oldDoc.moduleName?revision=$r|addcontext=yes\}   <b>$version</b>  \{portallink\}        <span style="font-size:12px;padding-left:5px">($calendarTool.formatDate($trackerService.dataService.getRevision($document.getContextId(),$r).created,"yyyy-MM-dd HH:mm")  ) </span>\
+  #end\
+#end\
+#if($notApprovedYet)\
+<i>The document has not been approved yet.</i>\
+#end\
+</div>\
+\
+#end\
+\
+### Obsolete macro\
+#macro(documentPanel $renderProperties $renderSignatures $approvedStatusToCheck) &nbsp; #end\
+\
+\
+### render\
+<div style="border:1px solid lightgray;padding:20px">\
+  #renderProperties()\
+  \\\\\
+  \
+  #renderLastApproved()\
+\
+  #renderSignatures()\
+</div>\
+\
+#end}

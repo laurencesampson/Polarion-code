@@ -1,0 +1,118 @@
+{\rtf1\ansi\ansicpg1252\cocoartf1348\cocoasubrtf170
+{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+\margl1440\margr1440\vieww10800\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural
+
+\f0\fs24 \cf0 #if($doc.name.equals("macros"))\
+#set($render = "true")\
+#end\
+##\
+#if($render)\
+1 Macros\
+#end\
+##\
+#if($render)\
+1.1 SpacePanel\
+\{code\}\
+\\#spacePanel("Specification>Specification.Home" "spec.png" "Here you can find all the resources related to the product specification including product vision, approved requirements specifications etc.")\
+\{code\}\
+#end\
+##\
+#macro (spacePanel $link $image $description)\
+<table cellpadding="0" cellspacing="0" style="margin-left:0px;width:60%;"><tr>\
+<td style="width:80px;height:100px;">\{image:$image\}</td>\
+<td style="padding:10px;">\
+*[$link]* \\\\\
+$description\
+</td>\
+</tr>\
+</table>\
+#end\
+##\
+#if($render)\
+1.1 ClearFloats\
+\{code\}\
+\\#clearFloats()\
+\{code\}\
+#end\
+##\
+#macro (clearFloats)\
+<div style="clear:both"></div>\
+#end\
+##\
+#if($render)\
+1.1 Score Board Entry\
+\{code\}\
+\\#scoreEntry("Draft" "status:draft" "req_status_draft.gif")\
+\{code\}\
+#end\
+##\
+#macro (scoreEntry  $label $query $image)\
+<img src="/polarion/icons/default/enums/$image"> $label | \{workitems:$query |display=count\}\
+#end\
+##\
+#macro(parseVariable $name $var $str)\
+#set($parameterPattern = "$name=")\
+#set($b = $str.indexOf($parameterPattern) + $parameterPattern.length())\
+#set($v = $null)\
+#set($array = $str.substring($b).split("\\n"))\
+#foreach($i in $array)\
+#if(!$var)\
+#set($var = $i.trim())\
+#end\
+#end\
+##$name=$\{var\}\\\\\
+#end\
+##\
+#if($render)\
+1.1 SetupSprintVariable \
+\{code\}\
+\\#setupSprintVariable("$sprint")\
+\{code\}\
+#end\
+#macro(setupSprintVariable $var)\
+#if(!$projectId)\
+#set($projectId = $page.space.projectId )\
+#end\
+#set($var= $request.getParameter("sprint"))\
+#if(!$var)\
+#set($adminDoc=$xwiki.getDocument("Development.SprintAdministration"))\
+#set($_content = $adminDoc.content)\
+#parseVariable("sprint" $var $_content)\
+#end\
+#if($var && $var.length()>0)\
+#set($timepoint = $trackerService.getTrackerProject($projectId).getTimePoint($var))\
+#else\
+#set($var = false)\
+#end\
+#end\
+##\
+#if($render)\
+1.1 BurnDown\
+\{code\}\
+\\#burndown("TeamOne")\
+\{code\}\
+#end\
+#macro(burndown $team)\
+\{style:type=div|float=left|width=330\}\
+\{line-chart:report-path=charts/scrum-$\{sprint\}-$\{team\}-burndown.xml|items=scrum-data:#$\{sprint\}/$\{team\}-ideal-progress;scrum-data:#$\{sprint\}/$\{team\}-real-progress;scrum-data:#$\{sprint\}/$\{team\}-real-prediction|tags=all|yAxisName=Man Hours|width=300|height=300\}\
+\{style\}\
+\\\\\
+*[Current Sprint ($\{sprint\})> SprintBoard]*\\\\\
+\\\\\
+End Date: <tt> $timepoint.time </tt> \\\\\
+Sprint progress:\{fact:base=scrum-data|value=$sprint/$\{team\}/estimated-planned-work\}</tt>\\\\\
+<div style="clear:both;"></div>\
+#end\
+##\
+#if($render)\
+1.1 Sprint Selector\
+\{code\}\
+\\#selectSprints("current-release" $releaseVar $null "version")\
+\{code\}\
+#end\
+##\
+#macro(selectSprints $id $selected $disabled $prefix)\
+<select style="width:300px" name="$id" #if($disabled)disabled="true"#end>#if(!$id.equals("current-release"))<option value="" #if($selected.equals(""))selected="true"#end>#if(!$id.equals("last-sprint"))-Disable Calculation-#end</option>#end#set($timePoints = $trackerService.getTrackerProject($projectId).getTimePoints())#foreach($t in $timePoints)#if($t.id.startsWith($prefix)) <option value="$t.id" #if($selected.equals($t.id))selected="true"#end>$t.name</option>#end#end</select>#end\
+##}

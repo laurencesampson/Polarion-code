@@ -1,0 +1,431 @@
+{\rtf1\ansi\ansicpg1252\cocoartf1348\cocoasubrtf170
+{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+\margl1440\margr1440\vieww10800\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural
+
+\f0\fs24 \cf0 ############################\
+### copyDocument Macro ###\
+############################\
+#set( $copyDocumentVer = "1.0.6" )\
+##################################################################################################################################\
+#if($doc.name.equals("copyDocument"))\
+1 The module "copyDocument" Version: $copyDocumentVer\
+This wiki page is a tool kit library of common accessors and control variables along with a macro library.\
+\{code\}\
+\
+Module:             "copyDocument"\
+\
+Purpose:            The "copyDocument" macro library contains velocity macros for copying user selected documents that are identified\
+                    as templates with a re-referencing process. There will be a unique workitem type that will be identified as key anchor for project.\
+                    If the project does not contain any of those workitem types and the copy process identifies that the user is attempting to copy a\
+                    template that has one of these workitem types as a reference then the copy will not be allowed. If the project does have\
+                    these workitem types pre-defined than the copy with a reference will be allowed and the referenced workitems will be\
+                    re-referenced to the local project version of those workitems. The single workitem type defined by "$wiType" is subclassed using a\
+                    enumeration custom field defined by "$wiCustomField".\
+                    \
+                    The list of template documents presented to the user is compiled from by taking the current space name where this macro is executed\
+                    added to the template project base, then any document that contains the template pattern in its name is consider for display.\
+                    Example: I am in the folder/space Specifications in project A, then this macro will look in the template project for a folder/space called\
+                    "Specifications" and any document with the template pattern in its name will be rendered to the user.\
+                     \
+                    The macro will create a Test Run Template (using the macros.createTestRunTemplateForDoc) if\
+                    the document created from the Macro is of type "Validation Test" or "Verification Test"\
+                \
+Author:             "David Merrill - 2014xxxx"\
+Modified By:        "Timothy J. Sampair - 20141125"\
+                    "Jean-Francois Thibeault - 20150202"\
+                    "Jean-Francois Thibeault - 20150205"\
+                    "Timothy J. Sampair - 20150210"\
+                    "David Merrill - 20150418"\
+\
+Required Dependency:    This macro library requires the use of the VContext Extension version 1.3.6.\
+                        Macro: #includeMacros("/macros.createTestRunTemplateForDoc")\
+\
+Control Variables:\
+"$wiType"               Defines the unique anchor workitem type that we will focus of our re-referencing process, here we default to "productInfo" as the\
+                        workitem type. You may override this value by specifying your own values before including this library module.\
+"$wiCustomField"        Defines the workitem custom field that will act as a subclassing field for this workitem, this data type should be an enumeration,\
+                        the default custom field ID is "productInfoType". You may override this value by specifying your own value before including this library module.\
+"$templateProject_Name" Defines the project that will contain the document templates, the default value here is "library" which is the default Polarion "Document Library".\
+                        You may override this value by specifying your own value before including this library module.\
+"$templatePattern"      Defines a pattern that must exist in the document name to be a template, this value defaults to "Template". So if I have a document with the\
+                        name "V23 Spec Template" then it will be a candidate for display. You may override this value by specifying your own value before including this library module.\
+"$templateSpace"        Override the location of the source documents\
+\
+\
+How To Use:\
+                    This macro library defines several internal macros, but begins execution at point of inclusion. So you must predefine\
+                    any control velocity variables before inclusion. This macro has some pre-defines that you can override by setting their\
+                    velocity variables before you load this macro.\
+Example of use:\
+## Define project anchor WI type overrides with the default values.\
+#set( $wiType = "productInfo" )\
+#set( $wiCustomField = "productInfoType" )\
+#set( $templateProject_Name = "library" )\
+#set( $templatePattern = "Template" )\
+\
+#includeMacros("macro.copyDocument")\
+\
+#set ($useCustomField = false)\
+\
+\{code\}\
+\
+1 Copy document from template library with re-reference\
+\
+#includeMacros("/macros.createTestRunTemplateForDoc")\
+\
+##\
+## Define contents of macro package\
+##\
+#else\
+##\
+## Define Control  pre-defines\
+##\
+#if ( !$wiType )\
+    ## Define project anchor WI type\
+    #set( $wiType = "productInfo" )\
+#end\
+\
+## Modified 4/18/2015 to make custom fields optional\
+##\
+\
+#set ($useCustomField = true)\
+#if ( !$wiCustomField )\
+    #set( $wiCustomField = "productInfoType" )\
+#elseif ($wiCustomField == "null")\
+    #set( $useCustomField = false )\
+#end\
+\
+#if ( !$templateProject_Name )\
+    #set( $templateProject_Name = "library" )\
+#end\
+#if ( !$templatePattern )\
+    #set( $templatePattern = "Template" )\
+#end\
+\
+## Modified 4/18/2015 to force selection of space name\
+##\
+\
+#if ( !$templateSpace )\
+    #set( $templateSpace = "$page.space.getTitle()" )\
+#end\
+\
+##\
+## Define "Control Access & Resource Variables":\
+##\
+#set( $QUOTE = '"' )\
+#set( $anchorWIs = [] )\
+#set( $projectId = $page.getSpace().getProjectId() )\
+#set ($doesDocumentAlreadyExist = "1")\
+\
+\
+##\
+## Macro getDocumentsInSpace \
+##\
+#macro(getDocumentsInSpace  $r_Documents $p_ProjectId $space)\
+  #if ( $space && $p_ProjectId )\
+\
+   ## Convert the $space (which will be the Space Title) into its corresponding Space Name ($realSpace below)\
+   #set( $realSpace = "" )\
+   #foreach( $folder in $trackerService.getFolderManager().getFolders($p_ProjectId) )\
+    #if ( $folder.getTitle() && $folder.getTitle().equals($space) )\
+     #set( $realSpace = $folder.getName() )\
+    #elseif ( $folder.getName().equals($space) )\
+     #set( $realSpace = $folder.getName() )\
+    #end\
+   #end\
+  #set( $project = $projectService.getProject($p_ProjectId) )\
+  #set ( $allModules=[] )\
+    #set( $modulesLocation = $project.location.getLocation($realSpace) )\
+    #set( $modules = $trackerService.moduleManager.getModules($project,$modulesLocation) )\
+    #if ( $modules )\
+      #foreach( $module in $modules )\
+        #set( $temp = $allModules.add("$space/$module.id") )\
+      #end\
+      #set( $r_Documents = "" )\
+      #foreach( $document in $allModules )\
+        ## set($r_Documents="$r_Documents#if($r_Documents.length() > 0),#end$document")\
+        #if ( $document.contains("$templatePattern") )\
+         #set( $r_Documents="$r_Documents#if($r_Documents.length() > 0),#end$document" )\
+        #end\
+      #end\
+    #end\
+  #end\
+#end\
+\
+##\
+## Macro getDocumentNamesInSpace \
+##\
+#macro(getDocumentNamesInSpace  $r_Documents $p_ProjectId $space)\
+    #if ( $space && $p_ProjectId )\
+        #set ( $project = $projectService.getProject($p_ProjectId) )\
+        #set ( $allModules=[] )\
+        #set( $modulesLocation = $project.location.getLocation($space) )\
+        #set( $modules = $trackerService.moduleManager.getModules($project,$modulesLocation) )\
+        #foreach( $module in $modules )\
+            #set( $temp = $allModules.add("$module.id") )\
+        #end\
+        #set( $r_Documents = "" )\
+        #foreach( $document in $allModules )\
+            #set( $r_Documents="$r_Documents#if($r_Documents.length() > 0),#end$document" )\
+        #end\
+    #end\
+#end\
+##\
+## Lookup Anchor WIs\
+##\
+#macro(lookupAnchorWIs)\
+    #if ( $anchorWIs.size() == 0 )\
+        #set( $anchorWIs = $trackerService.queryWorkItems("project.id:$\{projectId\} AND type:$\{wiType\}", "id") )\
+##        #info("lookupAnchorWIs - anchorWIs size is $anchorWIs.size()")\
+    #end\
+#end\
+##\
+## Method:      checkDocumentTemplate\
+## Purpose:     To Check a module to see if it has referenced WIs of anchor type $wiType if it does and the project\
+##              does not yet contain any anchor wis then return FALSE else TRUE.\
+##\
+#set( $checkDocumentTemplateMessage = "" )\
+#macro(checkDocumentTemplate $module)\
+    #set( $checkDocumentTemplate = false )\
+    ## We use this variable to stop the WI parsing in the document as soon as we detect that one WI doesn't have\
+    ## a supporting WI with the correct subclass\
+    ## This avoid the issue where more than one WI are contained in the document and the last WI is valid\
+    #set( $checkDocumentDidFailedOnce = false )\
+    ## Cache Anchor WIs\
+    #if ($useCustomField == true)\
+    #lookupAnchorWIs()\
+    #set( $wis = $module.getContainedWorkItems() )\
+    #foreach( $wi in $wis )\
+        #if (!$checkDocumentDidFailedOnce)\
+            #set( $wiStructureNode = $module.getStructureNodeOfWI($wi) )\
+            #if ( $wi.getType().getId().equals($wiType) )\
+                #if ( $wiStructureNode.isExternal() )\
+                    #if ( $anchorWIs.size() == 0 )\
+                        #set( $checkDocumentTemplate = false )\
+                        #set( $checkDocumentDidFailedOnce = true )\
+                    #else\
+                        #set( $checkDocumentTemplate = false )\
+                        #set( $subClassData = $wi.getCustomField($wiCustomField) )\
+                        #if ( $subClassData )\
+                            ## See if we have a replacement for ref with same subclass\
+                            #foreach( $anchorWI in $anchorWIs )\
+                                #if ( $anchorWI.getCustomField($wiCustomField).equals($wi.getCustomField($wiCustomField)) )\
+                                    #set( $checkDocumentTemplate = true ) ## Everything is OK now\
+                                    ##info("Found a valid supporting workitem($wiType) with correct subclass($subClassData.getId())")\
+                                #end\
+                            #end\
+                            #if ( !$checkDocumentTemplate)\
+                                #warning("Project does not contain a workitem of type $wiType with custom field $wiCustomField set to $wi.getCustomField($wiCustomField).getId() - REF($wi.getId())" )\
+                                #set( $checkDocumentTemplateMessage = "and it must include a workitem of type $wiType with custom field $wiCustomField set to $wi.getCustomField($wiCustomField).getId()" )\
+                                #set( $checkDocumentDidFailedOnce = true )\
+                            #end\
+                        #else\
+                            #error("Workitem $wi.getId() does not support valid custom field($wiCustomField) for subclassing")\
+                            #set( $checkDocumentDidFailedOnce = true )\
+                        #end\
+                    #end\
+                #else\
+                    #set( $checkDocumentTemplate = true )\
+                #end\
+            #end\
+        #end\
+    #end\
+    #else\
+         #set( $checkDocumentTemplate = true )\
+    #end\
+#end\
+##\
+## Method:      lookupReplacementID\
+## Purpose:     To lookup a replacement workitem for referenced item.\
+##\
+#macro(lookupReplacementID $workItem)\
+    #set( $lookupReplacementID = $null )\
+    #foreach( $anchorWI in $anchorWIs )\
+        #if ( $anchorWI.getCustomField($wiCustomField).equals($workItem.getCustomField($wiCustomField)) )\
+            #set( $lookupReplacementID = "$anchorWI.getId()" )\
+##            #info("Found replacement WI for referenced item $workItem.getId() using $anchorWI.getId()")\
+        #end\
+    #end\
+##    #info("lookupReplacementID: for $workItem.getId() with $lookupReplacementID")\
+#end\
+##\
+## Method:      reReferenceWIs\
+## Purpose:     If document(module) contains any referenced WIs of anchor Type then we will need to re-reference them\
+##              to anchor WIs of the current project.\
+##\
+## Notes:       Update Referenced Items\
+##\
+#macro(reReferenceWIs $module $sourceProjectId $targetProjectId)\
+    ## Cache Anchor WIs\
+    #lookupAnchorWIs()\
+    #set( $contentParts = $module.getHomePageContentParts() )\
+    #set( $partIds = $objectFactory.newLinkedHashSet() )\
+    #set( $addedPartIds = $objectFactory.newLinkedHashSet() )\
+    #set( $modifiedPartIds = $objectFactory.newLinkedHashSet() )\
+    #set( $removedPartIds = $objectFactory.newLinkedHashSet() )\
+    #set( $addedParts = $objectFactory.newLinkedHashMap() )\
+    #set( $modifiedParts = $objectFactory.newLinkedHashMap() )\
+    #foreach( $part in $contentParts )\
+        #set( $dummy = $partIds.add($listTool.get($part, 0)) )\
+##        Adding to partIds - $listTool.get($part, 0) Index $partIds.size()\\\\\
+    #end\
+    #set( $wis = $module.getContainedWorkItems() )\
+    #foreach( $wi in $wis )\
+        #set( $wiStructureNode = $module.getStructureNodeOfWI($wi) )\
+        #if ( $wi.getType().getId().equals($wiType) )\
+            #if ( $wiStructureNode.isExternal() )\
+                ## Lookup reference\
+                #lookupReplacementID($wi)\
+                #foreach( $part in $partIds )\
+                    #if ( $part.indexOf("params=id=$wi.getId()") > 0 )\
+                        #set( $modifiedPart = $part.replaceAll("params=id=$wi.getId()", "params=id=$lookupReplacementID") )\
+                        #set( $modifiedPart = $modifiedPart.replaceAll("project=$sourceProjectId", "project=$targetProjectId") )\
+##                        #warning("Updating ->$part<-|to be->$modifiedPart<-| modifiedParts size $modifiedParts.size()")\
+                        #set( $modifiedPart = "<div id=$\{QUOTE\}$\{modifiedPart\}$\{QUOTE\}>$\{lookupReplacementID\}</div>" )\
+                        #set( $dummy = $modifiedParts.put($part, $modifiedPart) )\
+                        #set( $dummy = $modifiedPartIds.add($part) )\
+                    #end\
+                #end\
+            #end\
+        #end\
+    #end\
+##    modifiedParts size is $modifiedParts.size() \\\\\
+    #if ( $modifiedParts.size() > 0 )\
+        #if ( $transactionService.txExists() ) # $transactionService.endTx(false)  #end\
+        $transactionService.beginTx()\
+        #set( $okToMerge = $module.checkConflictInParts($partIds, $addedPartIds, $modifiedPartIds, $removedPartIds, $module) )\
+        #if ( $okToMerge )\
+            #warning("Merge Conflicts exist")\
+        #end\
+##        #warning("Performing merge of changes")\
+        #set( $mergedContentResult = $module.mergeContentParts($partIds, $addedParts, $modifiedParts, $removedPartIds) )\
+        $module.save()\
+        $transactionService.endTx(false)\
+    #end\
+#end\
+##\
+##\
+## Macro:	nameValidation\
+## Purpose:	To validate file name does not contain any bad characters\
+##\
+#macro(nameValidation $fileName $action)\
+    #if ( !$fileName.matches('[a-zA-Z0-9\\ _-]+') )\
+    	#if ( $action.equalsIgnoreCase("create") )\
+    		#set( $action = "" )\
+    		#error("Bad Characters found in file name($fileName), please use a-z or A-Z 0-9 - or _")\
+                [Click here to create another document>$page.getName()]\
+    	#end\
+    #end\
+#end\
+\
+##\
+## Query Request Object for any user selected options\
+##\
+#set ( $sourceDocument = $request.getParameter("sourceDocument") )\
+#set ( $targetDocument = $request.getParameter("targetDocument") )\
+#set ( $date = $request.getParameter("date") )\
+#set ( $action = $request.getParameter("action") )\
+#nameValidation($targetDocument $action)\
+\
+#if ( $action == "create" )\
+  \{parameter:action|type=string|value=create\}\
+  #if ( ($sourceDocument == ""  || $targetDocument == "") )\
+    #warning("To create a new document, make sure you have chosen a \\"Document Template\\" AND have entered a \\"New Document Name\\"") [Click here to re-enter information>$page.getName()]\
+  #else\
+    #set( $sourceDocParts = $sourceDocument.split("/") )\
+      #set( $selectedSpace = $listTool.get($sourceDocParts, 0) )\
+    #set( $realSpace = "" )\
+    #foreach( $folder in $trackerService.getFolderManager().getFolders($templateProject_Name) )\
+\
+      #if ( $folder.getTitle() && $folder.getTitle().equals($selectedSpace) )\
+        #set( $realSpace = $folder.getName() )\
+      #elseif ( $folder.getName().equals($selectedSpace) )\
+        #set( $realSpace = $folder.getName() )\
+      #end\
+    #end\
+\
+\
+    #set( $sourceDocument = "$realSpace/$listTool.get($sourceDocParts, 1)" )\
+\
+    ## set($templateProject = $trackerService.getProjectsService().getProject("ServiceTemplates"))\
+    #set( $templateProject = $trackerService.getProjectsService().getProject("$templateProject_Name") )\
+    #set( $targetProject = $trackerService.getProjectsService().getProject($page.project) )\
+    #set( $moduleManager = $trackerService.getModuleManager() )\
+\
+    #set( $sourceDocLocation = $templateProject.location.getLocation("$sourceDocument") )\
+    #set( $targetDocLocation = $targetProject.location.getLocation($page.space.getName()) )\
+\
+    ## get module to be copied\
+    #set ( $sourceModule = $moduleManager.getModule($templateProject, $sourceDocLocation))\
+\
+\
+    #set ( $sourceModuleName = $sourceModule.getModuleName() )\
+    #set ( $finalTargetDocumentName = "$targetDocument" )\
+    #set ( $finalTargetDocumentLocation = $targetDocLocation.append("$finalTargetDocumentName") )\
+    #if ( !$moduleManager.existModule($targetProject, $finalTargetDocumentLocation ) )       \
+      #set ($doesDocumentAlreadyExist = "0")\
+      ## Check to see if we have our pre-defined wis within our project for re-referencing\
+      #set ($checkDocumentTemplate = true)\
+\
+      #checkDocumentTemplate($sourceModule)\
+\
+      #if ( !$checkDocumentTemplate )           \
+          #warning("You must create the master document first before subordinate documents $checkDocumentTemplateMessage.")\
+          #warning("You should always create a DDP document first, then a User Needs document and then any other types of document")          \
+      #else\
+          #if ($transactionService.txExists() ) # $transactionService.endTx(false)  #end\
+          $transactionService.beginTx()\
+\
+\
+\
+          #set ( $newModule = $moduleManager.duplicate($sourceModule,$targetProject,$targetDocLocation,$finalTargetDocumentName,null,null,null,null,null))\
+\
+          $transactionService.endTx(false)\
+          #info("New Document \{document:_default/$finalTargetDocumentName\} created")\
+          #if ($useCustomField)\
+            #reReferenceWIs($newModule $templateProject.getId() $targetProject.getId())\
+          #end\
+          \
+          ## Create a Test Run Template based on the document if \
+          ## the document type is: Validation Protocol or Verification Protocol\
+          ## ------------------------------------------------------------------                        \
+          #if (($newModule.getType().getId() == "verificationProtocol") || ($newModule.getType().getId() == "validationProtocol"))\
+             #createTestRunTemplateForDoc($page.project $page.space.getName() $finalTargetDocumentName "type:(verificationTest validationTest testcase)")\
+          #end   \
+      #end\
+    #else \
+      ###if ($doesDocumentAlreadyExist == "1")\
+      ##  #warning("Document already exists, enter a new name") \
+      ##  [Click to create document>$page.getName()] \
+      ###else      \
+        #info("Click here to access new document: \{document:$page.space.getName()/$finalTargetDocumentName\}") \
+        [Click here to create another document>$page.getName()]       \
+      ###end\
+    #end\
+  #end \
+#end\
+\
+\
+## Fill form\
+\
+\{parameter:targetDocument|type=string|value=\}\
+\{parameter:date|type=date|value=@current\}\
+#if ( !$action || $action== "select" )\
+    #getDocumentsInSpace ($documentList "$templateProject_Name" "$templateSpace")\
+    \{parameter:sourceDocument|type=string|allowed-values=$documentList|allow-no-value=false\}\
+    \{parameter:action|type=string|value=create\}\
+\
+    \{parameter-form\}\
+     <div style="display: none">\{parameter-editor:action\}</div>\
+<table cellpadding=4>\
+<tr><td><font size=4><b>Document Template:</b></font></td></tr>\
+<tr><td>\{parameter-editor:sourceDocument|width=400\}</td></tr>\
+<tr><td><font size=4><b>New Document Name:</b></font></td></tr>\
+<tr><td>\{parameter-editor:targetDocument|width=400\} </td></tr>\
+<tr><td>\{parameter-form-submit\}</td></tr>\
+</table>\
+\{parameter-form\}\
+#end\
+#end}

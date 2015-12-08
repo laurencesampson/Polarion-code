@@ -1,0 +1,496 @@
+{\rtf1\ansi\ansicpg1252\cocoartf1348\cocoasubrtf170
+{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+\margl1440\margr1440\vieww10800\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural
+
+\f0\fs24 \cf0 #*\
+	harmHazardTable renders the ISO 14971 Harm and Hazard Table Wiki Report - 04/13/2015\
+*#\
+\
+#macro (harmHazardTable $query $calcType $wiDescription)\
+	#set($harmWorkItems = $trackerService.queryWorkItems($query, "id") )\
+	#set($rrWorkItems = $trackerService.queryWorkItems("type:riskRecord AND project.id:$page.project", "id"))\
+	\
+	#set($projharm = "")\
+	#set($harmText = "")\
+	\
+	##\
+	## Table Definition\
+	##\
+	<table border="1" cellpadding="4" width="3000px">\
+	##\
+	## Table Headers\
+	##\
+	<tr>\
+	<th rowspan="2" style="background-color: #5D7B9D;" width="100px"><font color="#FFFFFF">Polarion Risk Record</font></th>\
+	<th rowspan="2" style="background-color: #5D7B9D;" width="100px"><font color="#FFFFFF">Hazard</font></th>\
+	<th rowspan="2" style="background-color: #5D7B9D;" width="100px"><font color="#FFFFFF">Hazard ID</font></th>\
+	<th rowspan="2" style="background-color: #428DA6;" width="300px"><font color="#FFFFFF">Hazardous Situation</font></th>\
+	<th rowspan="2" style="background-color: #5D7B9D;"><font color="#FFFFFF">Essential Performance</font></th>\
+	<th rowspan="2" style="background-color: #5D7B9D;" width="300px"><font color="#FFFFFF">Harm</font></th>\
+	<th rowspan="2" style="background-color: #428DA6;" width="300px"><font color="#FFFFFF">Source</font></th>\
+	<th rowspan="2" style="background-color: #428DA6;" width="150px"><font color="#FFFFFF">FMEA ID (line item)</font></th>\
+	<th rowspan="2" style="background-color: #5D7B9D;" width="300px"><font color="#FFFFFF">POSSIBLE CAUSE</font></th>\
+	<th colspan="4" style="background-color: #5D7B9D;" align="center"><font color="#FFFFFF">PRE-MITIGATION</font></th>\
+	<th rowspan="2" style="background-color: #5D7B9D;" width="350px"><font color="#FFFFFF">Mitigation/Control</font></th>\
+	<th rowspan="2" style="background-color: #5D7B9D;" width="100px"><font color="#FFFFFF">Verification of Implementation</font></th>\
+	<th rowspan="2" style="background-color: #5D7B9D;" width="100px"><font color="#FFFFFF">Verification of Effectiveness</font></th>\
+\
+        <th rowspan="2" style="background-color: #5D7B9D;" width="300px"><font color="#FFFFFF">VoE Rational</font></th>\
+\
+\
+	<th colspan="4" style="background-color: #5D7B9D;" align="center"><font color="#FFFFFF">POST-MITIGATION</font></th>\
+	<th rowspan="2" style="background-color: #5D7B9D;"><font color="#FFFFFF">Risk Acceptable?</font></th>\
+	<th rowspan="2" style="background-color: #5D7B9D;" width="300px"><font color="#FFFFFF">Risk Acceptance Rational</font></th>\
+	</tr>\
+	\
+	<tr>\
+	<th style="background-color: #5D7B9D;" width="90px" align="center"><font color="#FFFFFF">SEV</font></th>\
+	<th style="background-color: #5D7B9D;" width="90px" align="center"><font color="#FFFFFF">P</font></th>\
+	<th style="background-color: #5D7B9D;" width="90px" align="center"><font color="#FFFFFF">Risk Index</font></th>\
+	<th style="background-color: #5D7B9D;" width="300px"><font color="#FFFFFF">Harm Occurrence Rational</font></th>\
+	<th style="background-color: #5D7B9D;" width="90px" align="center"><font color="#FFFFFF">SEV</font></th>\
+	<th style="background-color: #5D7B9D;" width="90px" align="center"><font color="#FFFFFF">P</font></th>\
+	<th style="background-color: #5D7B9D;" width="90px" align="center"><font color="#FFFFFF">Risk Index</font></th>\
+	<th style="background-color: #5D7B9D;" width="300px"><font color="#FFFFFF">Harm Occurrence Rational</font></th>\
+	</tr>\
+	\
+	##\
+	##  Harm Definition Loop\
+	##\
+	\
+	#foreach ($wi in $harmWorkItems)\
+\
+		## Retrieve Harm Instance Information\
+		#set ($harmId = $wi.getId())\
+		#set ($harmTitle = $wi.getTitle())\
+\
+		## Determine Harm Instance Display Text\
+\
+		#set ($projharm = $wi.getProjectId())\
+		#set ($harmText = "$\{harmText\}\{workitem:$\{projharm\}/$\{harmId\}| display=long|expand=no\}<br/>")\
+\
+		## Retrieve Risk Severity from work item\
+\
+		#set ($rSeverity = "")\
+        #if($wi.getCustomField("harmSeverity"))\
+			#set ($rSeverity = $wi.getCustomField("harmSeverity") )\
+			#set ($rSeverityValue = $rSeverity.getId() )\
+			#set ($rSeverityURL = $rSeverity.getProperty("iconURL") )\
+			\
+			#if ($rSeverityURL != "")\
+				#set ($rSeverity = "<img src=$\{rSeverityURL\} /> $!rSeverity.getName()" )\
+			#end\
+		#end\
+		\
+		#set($possibleCause = "")\
+		#if($wi.getCustomField("possibleCause"))\
+			#set($possibleCause = $wi.getCustomField("possibleCause").getContent())\
+		#end\
+						\
+		#set ($hazardWorkItemsStructs = $wi.getLinkedWorkItemsStructsBack() )\
+		\
+		##\
+		##  Hazard Definition Loop\
+		##\
+	\
+		#foreach ($h_wiStruct in $hazardWorkItemsStructs)\
+			#set($h_wi = $h_wiStruct.getLinkedItem())\
+			#set($h_wi_id = $h_wi.getId())\
+			#set($h_wi_title = $h_wi.getTitle())\
+			\
+			#set($occur_pre = "")\
+			#set($occur_post = "")\
+			#set($projh = "")\
+			#set($hazardText = "")\
+			#set($hazard = "") 	\
+			#set($source = "")\
+			#set($occurrenceRationale = "")\
+			#set($postOccurrenceRational = "")\
+			#set($hazardText = "")\
+			#set($rrText = "")\
+			#set($verOfEffectiveness = "")\
+			#set($verOfImplementation = "")\
+			\
+			##\
+			##  Hazard instance display text\
+			##\
+			#set($projh = $h_wi.getProjectId() )\
+			#set($hazardText = "$\{hazardText\}\{workitem:$\{projh\}/$\{h_wi_id\}| display=long\}<br/>" )\
+			\
+			#if($h_wi.getCustomField("haz"))\
+				#set($hazardContent = $h_wi.getCustomField("haz"))\
+				\
+				#if($hazardContent.getName() != "")\
+					#set($hazard = $hazardContent.getName())\
+				#elseif($hazardContent.getId() != "")\
+					#set($hazard = $hazardContent.getId())\
+				#end\
+			#end\
+			\
+			#if($h_wi.getCustomField("occurrenceRational"))\
+				#set($occurrenceRationale = $h_wi.getCustomField("occurrenceRational").getContent())\
+			#end\
+			\
+			#if($h_wi.getCustomField("postOccurrenceRational"))\
+				#set($postOccurrenceRational = $h_wi.getCustomField("postOccurrenceRational").getContent())\
+			#end\
+						\
+			#if($h_wi.getCustomField("verificationOfEffectiveness"))\
+				#set($verOfEffectiveness = $h_wi.getCustomField("verificationOfEffectiveness"))\
+				#set($verOfEffectivenessUrl = $verOfEffectiveness.getProperty("iconURL"))\
+\
+				#if ($verOfEffectivenessUrl != "")\
+					#set ($verOfEffectiveness = "<img src=$\{verOfEffectivenessUrl\} /> $!verOfEffectiveness.getName()")\
+				#end\
+			#end\
+\
+                        #if($h_wi.getCustomField("voeRational"))\
+				#set($voeRational = $h_wi.getCustomField("voeRational").getContent())\
+			#end\
+\
+\
+			\
+			#if($h_wi.getCustomField("verificationOfImplementation"))\
+				#set($verOfImplementation = $h_wi.getCustomField("verificationOfImplementation"))\
+				#set($verOfImplementationUrl = $verOfImplementation.getProperty("iconURL"))\
+\
+				#if ($verOfImplementationUrl != "")\
+					#set($verOfImplementation = "<img src=$\{verOfImplementationUrl\} /> $!verOfImplementation.getName()")\
+				#end\
+			#end\
+			\
+			\
+			##\
+			##  RiskRecord definition loop\
+			##\
+\
+			#set($hasRiskRecord = false)\
+			#foreach($rr in $rrWorkItems) \
+				#if($wi.getLinkedWorkItemsDirect().contains($rr) && $h_wi.getLinkedWorkItemsDirect().contains($rr))\
+					#set($rr_wi = $rr)\
+					#set($hasRiskRecord = true)\
+				#end\
+			#end\
+\
+			#set($essentialPerformance = "")\
+			#set($riskAcceptability = "")\
+			#set($riskRational = "")\
+			#set($fmeaId = "")\
+			#set($occur_pre_text = "")\
+			#set($occur_post_text = "")\
+			#if($hasRiskRecord)\
+\
+				##\
+				##  RiskRecord instance display text\
+				##\
+				#set($sourceText = "")\
+				#foreach($ps_wi in $rr_wi.getLinkedWorkItemsDirect())				\
+					#if($ps_wi.getType().getId().equals('ps')) 					\
+						#set($sourceText = "$sourceText \{workitem:$\{ps_wi.getProjectId()\}/$\{ps_wi.getId()\}|display=long|expand=no\}<br/>" )\
+					#end\
+					\
+					#if($ss_wi.getType().getId().equals('ss')) 					\
+						#set($sourceText = "$sourceText \{workitem:$\{ss_wi.getProjectId()\}/$\{ss_wi.getId()\}|display=long|expand=no\}<br/>" )\
+					#end\
+				#end\
+				\
+				#set($proj = $rr_wi.getProjectId() )\
+				#set($id = $rr_wi.getId() )\
+				#set($rrText = "\{workitem:$\{proj\}/$\{id\}|display=short|expand=no\}<br/>" )				\
+				\
+				#if($rr_wi.getCustomField("ePerformance"))\
+					#set ($essentialPerformance = $rr_wi.getCustomField("ePerformance") )\
+					#set ($essentialPerformanceUrl = $essentialPerformance.getProperty("iconURL") )\
+\
+					#if ($essentialPerformanceUrl != "")\
+						#set ($essentialPerformance = "<img src=$\{essentialPerformanceUrl\} /> $!essentialPerformance.getName()")\
+					#end\
+				#end\
+				\
+				#if($rr_wi.getCustomField("riskAcceptability"))\
+					#set($riskAcceptability = $rr_wi.getCustomField("riskAcceptability"))\
+					#set($riskAcceptabilityUrl = $riskAcceptability.getProperty("iconURL"))\
+					\
+					#if ($riskAcceptabilityUrl != "")\
+						#set ($riskAcceptability = "<img src=$\{riskAcceptabilityUrl\} /> $!riskAcceptability.getName()")\
+					#end\
+				#end\
+				\
+				#if($rr_wi.getCustomField("riskRational"))\
+					#set($riskRational = $rr_wi.getCustomField("riskRational").getContent())\
+				#end\
+				\
+				#if($rr_wi.getCustomField("fmeaRef"))\
+					#set($fmeaId = $rr_wi.getCustomField("fmeaRef").getContent())\
+				#end\
+							\
+				#if($rr_wi.getCustomField("preMitigationPOccurrence"))\
+					#set($occur_pre = $rr_wi.getCustomField("preMitigationPOccurrence") )\
+					#set($occur_pre_URL = $occur_pre.getProperty("iconURL") )\
+					#set($occur_preValue = $occur_pre.getId() )\
+\
+					#if ($occur_pre_URL != "")\
+						#set($occur_pre_text = "<img src=$\{occur_pre_URL\} /> $!occur_pre.getName()" )\
+					#end\
+				#end\
+				\
+				#if($rr_wi.getCustomField("postMitigationPOccurrence"))\
+					#set($occur_post = $rr_wi.getCustomField("postMitigationPOccurrence") )\
+					#set($occur_post_URL = $occur_post.getProperty("iconURL") )\
+					#set($occur_postValue = $occur_post.getId() )\
+\
+					#if ($occur_post_URL != "")\
+						#set($occur_post_text = "<img src=$\{occur_post_URL\} /> $!occur_post.getName()" )\
+					#end\
+				#end\
+				\
+				#if($rr_wi.getCustomField("postMitigationPOccurrence"))\
+					#set($occur_pValue_post = $rr_wi.getCustomField("postMitigationPOccurrence").getId())\
+				#end\
+				\
+				#calcRPL("mitigateTable" $occur_preValue $occur_postValue $rSeverityValue $rr_wi)\
+				\
+			#else\
+				#set($icon = $h_wi.getType().getProperty("iconURL") )\
+				#set($hazardText = "<font color=grey><img src=$icon> ~~$h_wi_id - $h_wi_title~~</font>")\
+			\
+				#set($icon = $wi.getType().getProperty("iconURL") )\
+				#set($harmText = "<font color=grey><img src=$icon> ~~$harmId - $harmTitle~~</font>")\
+				\
+				#set($retRPL = "")\
+				#set($bgcolor = "")\
+				#set($retRPL_post = "")\
+				#set($bgcolor_post = "")\
+			#end\
+			\
+			#set ($mitigatingItems = $h_wi.getLinkedWorkItemsBack() )\
+			#set ($mitigatingText = "")\
+			#set ($h_wi_type = $h_wi.getType().getId())\
+			\
+			##\
+			##  Mitigation definition loop\
+			##\
+\
+			#if ($mitigatingItems.size() > 0) \
+\
+				#foreach ($mit_wi in $mitigatingItems)\
+\
+					#set ($proj = $mit_wi.getProjectId() )\
+					#set ($id = $mit_wi.getId() )\
+					\
+					##\
+					##  Mitigation instance display text\
+					##\
+\
+					#set ($mitigatingText = "$mitigatingText \{workitem:$\{proj\}/$\{id\}|display=long|expand=no\}<br/>" )\
+					\
+				#end  ##  End Mitigation Loop\
+			#end\
+			\
+			<tr>\
+			<td>$rrText</td>\
+			<td>$hazard</td>\
+			<td>???</td>\
+			<td>$hazardText</td>\
+			<td align="center">$essentialPerformance</td>\
+			<td>$harmText</td>\
+			<td>$sourceText</td>\
+			<td>$fmeaId</td>\
+			<td>$possibleCause</td>\
+			<td align="center">$rSeverity</td>\
+			<td align="center">$occur_pre_text</td>\
+			<td align="center" $bgcolor>$!\{retRPL\}</td>\
+			<td>$occurrenceRationale</td>\
+			<td>$mitigatingText</td>\
+			<td align="center">$verOfImplementation</td>\
+			<td align="center">$verOfEffectiveness</td>\
+\
+                        <td align="center">$voeRational</td>\
+\
+			<td align="center">$rSeverity</td>\
+			<td align="center">$occur_post_text</td>\
+			<td align="center" $bgcolor_post>$!\{retRPL_post\}</td>\
+			<td>$postOccurrenceRational</td>\
+			<td align="center">$riskAcceptability</td>\
+			<td>$riskRational</td>\
+			</tr>	\
+		#end  ##  End Hazard Loop\
+\
+		#set($harmText = "")	\
+\
+	#end  ##  End Harm Loop\
+	</table>\
+\
+#end  ##macro HarmHazardTable\
+\
+\
+\
+##\
+##  Sub Macro Definition Section\
+##\
+\
+#macro (calcRPL $w_calcType $poccur $poccur_post $severity $rr_wi)\
+\
+	#set ($retRPL = "")\
+	#set ($retRPL_post = "")	\
+	#set ($pValue = "$poccur")\
+	#set ($pValue_post = "$poccur_post")\
+	#set ($bgcolor = "")\
+	#set ($bgcolor_post = "")\
+\
+	#if ($severity == "1") \
+		#if ($pValue == "1")\
+		  #set ($retRPL = "D" )\
+		#elseif ($pValue == "2")\
+		  #set ($retRPL = "D" )\
+		#elseif ($pValue == "3")\
+		  #set ($retRPL = "D" )\
+		#elseif ($pValue == "4")\
+		  #set ($retRPL = "C" )\
+		#elseif ($pValue == "5")\
+		  #set ($retRPL = "C" )\
+		#end\
+    #elseif ($severity == "2")\
+        #if ($pValue == "1")\
+            #set ($retRPL = "D" )\
+		#elseif ($pValue == "2")\
+		  #set ($retRPL = "D" )\
+		#elseif ($pValue == "3")\
+		  #set ($retRPL = "C" )\
+		#elseif ($pValue == "4")\
+		  #set ($retRPL = "C" )\
+		#elseif ($pValue == "5")\
+		  #set ($retRPL = "B" )\
+		#end\
+	#elseif ($severity == "3")\
+		#if ($pValue == "1")\
+		  #set ($retRPL = "C" )\
+		#elseif ($pValue == "2")\
+		  #set ($retRPL = "C" )\
+		#elseif ($pValue == "3")\
+		  #set ($retRPL = "B" )\
+		#elseif ($pValue == "4")\
+		  #set ($retRPL = "B" )\
+		#elseif ($pValue == "5")\
+		  #set ($retRPL = "A" )\
+		#end\
+    #elseif ($severity == "4")\
+		#if ($pValue == "1")\
+		  #set ($retRPL = "C" )\
+		#elseif ($pValue == "2")\
+		  #set ($retRPL = "B" )\
+		#elseif ($pValue == "3")\
+		  #set ($retRPL = "B" )\
+		#elseif ($pValue == "4")\
+		  #set ($retRPL = "A" )\
+		#elseif ($pValue == "5")\
+		  #set ($retRPL = "A" )\
+		#end\
+	#elseif ($severity == "5")\
+		#if ($pValue == "1")\
+		  #set ($retRPL = "B" )\
+		#elseif ($pValue == "2")\
+		  #set ($retRPL = "B" )\
+		#elseif ($pValue == "3")\
+		  #set ($retRPL = "A" )\
+		#elseif ($pValue == "4")\
+		  #set ($retRPL = "A" )\
+		#elseif ($pValue == "5")\
+		  #set ($retRPL = "A" )\
+		#end        \
+	#end\
+\
+	#if ($retRPL == "D") \
+		#set ($bgcolor = 'bgcolor="#58FF59"')\
+	#elseif ($retRPL == "C")\
+		#set ($bgcolor = 'bgcolor="#57ABFF"')\
+	#elseif ($retRPL == "B")\
+		#set ($bgcolor = 'bgcolor="#FFFF59"')\
+	#elseif ($retRPL == "A")\
+		#set ($bgcolor = 'bgcolor="#FF5959"')\
+	#else\
+		#set ($bgcolor = "")\
+	#end\
+\
+    #if ($severity == "1") \
+		#if ($pValue_post == "1")\
+		  #set ($retRPL_post = "D" )\
+		#elseif ($pValue_post == "2")\
+		  #set ($retRPL_post = "D" )\
+		#elseif ($pValue_post == "3")\
+		  #set ($retRPL_post = "D" )\
+		#elseif ($pValue_post == "4")\
+		  #set ($retRPL_post = "C" )\
+		#elseif ($pValue_post == "5")\
+		  #set ($retRPL_post = "C" )\
+		#end\
+	#elseif ($severity == "2")\
+		#if ($pValue_post == "1")\
+		  #set ($retRPL_post = "D" )\
+		#elseif ($pValue_post == "2")\
+		  #set ($retRPL_post = "D" )\
+		#elseif ($pValue_post == "3")\
+		  #set ($retRPL_post = "C" )\
+		#elseif ($pValue_post == "4")\
+		  #set ($retRPL_post = "C" )\
+		#elseif ($pValue_post == "5")\
+		  #set ($retRPL_post = "B" )\
+		#end\
+	#elseif ($severity == "3")\
+		#if ($pValue_post == "1")\
+		  #set ($retRPL_post = "C" )\
+		#elseif ($pValue_post == "2")\
+		  #set ($retRPL_post = "C" )\
+		#elseif ($pValue_post == "3")\
+		  #set ($retRPL_post = "B" )\
+		#elseif ($pValue_post == "4")\
+		  #set ($retRPL_post = "B" )\
+		#elseif ($pValue_post == "5")\
+		  #set ($retRPL_post = "A" )\
+		#end\
+	#elseif ($severity == "4")\
+		#if ($pValue_post == "1")\
+		  #set ($retRPL_post = "C" )\
+		#elseif ($pValue_post == "2")\
+		  #set ($retRPL_post = "B" )\
+		#elseif ($pValue_post == "3")\
+		  #set ($retRPL_post = "B" )\
+		#elseif ($pValue_post == "4")\
+		  #set ($retRPL_post = "A" )\
+		#elseif ($pValue_post == "5")\
+		  #set ($retRPL_post = "A" )\
+		#end\
+	#elseif ($severity == "5")\
+		#if ($pValue_post == "1")\
+		  #set ($retRPL_post = "B" )\
+		#elseif ($pValue_post == "2")\
+		  #set ($retRPL_post = "B" )\
+		#elseif ($pValue_post == "3")\
+		  #set ($retRPL_post = "A" )\
+		#elseif ($pValue_post == "4")\
+		  #set ($retRPL_post = "A" )\
+		#elseif ($pValue_post == "5")\
+		  #set ($retRPL_post = "A" )\
+		#end        \
+	#end\
+\
+	#if ($retRPL_post == "D") \
+		#set ($bgcolor_post = 'bgcolor="#58FF59"')\
+	#elseif ($retRPL_post == "C")\
+		#set ($bgcolor_post = 'bgcolor="#57ABFF"')\
+	#elseif ($retRPL_post == "B")\
+		#set ($bgcolor_post = 'bgcolor="#FFFF59"')\
+	#elseif ($retRPL_post == "A")\
+		#set ($bgcolor_post = 'bgcolor="#FF5959"')\
+	#else\
+		#set ($bgcolor_post = "")\
+	#end\
+	\
+	$transactionService.beginTx()\
+		$rr_wi.setCustomField("preMitigationRPLRI", $rr_wi.getEnumerationOptionForField("preMitigationRPLRI", $retRPL))\
+		$rr_wi.setCustomField("postMitigationRPLRI", $rr_wi.getEnumerationOptionForField("postMitigationRPLRI", $retRPL_post))\
+		$rr_wi.save()\
+	$transactionService.commitTx()\
+#end  ## macro calcRPL}
